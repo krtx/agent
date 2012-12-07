@@ -7,18 +7,18 @@
 #include <cstdio>
 #include "QuadProg++.hh"
 
-double solve_qp(std::vector<Vector<double> > x,
-                Vector<double> y,
-                Vector<double>& alpha)
+double train_svm(Matrix<double> x,
+                 Vector<double> y,
+                 Vector<double>& alpha)
 {
-  int r = x.size();
+  int r = x.nrows();
   int n = r, m = r, p = 1;
   Matrix<double> G(n, m), CE(n, p), CI(n, m);
   Vector<double> g0(n), ce0(p), ci0(m);
   
   for (int i = 0; i < n; i++)
     for (int j = 0; j < m; j++) {
-      G[i][j] = dot_prod(x[i], x[j]) * y[i] * y[j];
+      G[i][j] = dot_prod(x.extractRow(i), x.extractRow(j)) * y[i] * y[j];
       if (i == j) G[i][j] += 1.9e-9;
     }
   for (int i = 0; i < n; i++) g0[i] = -1.0;
@@ -34,7 +34,7 @@ double solve_qp(std::vector<Vector<double> > x,
   return solve_quadprog(G, g0, CE, ce0, CI, ci0, alpha);
 };
 
-void read_input(std::istream& ifs, std::vector<Vector<double> >& x, Vector<double>& y)
+void read_input(std::istream& ifs, Matrix<double>& x, Vector<double>& y)
 {
   std::vector<std::vector<double> > _x;
   std::vector<double> _y;
@@ -49,36 +49,35 @@ void read_input(std::istream& ifs, std::vector<Vector<double> >& x, Vector<doubl
     _x.push_back(v);
   }
 
-  for (int i = 0; i < _x.size(); i++) {
-    Vector<double> t; t.resize(_x[i].size());
-    for (int j = 0; j < _x[i].size(); j++) t[j] = _x[i][j];
-    x.push_back(t);
-  }
+  x.resize(_x.size(), _x[0].size());
+  for (int i = 0; i < _x.size(); i++)
+    for (int j = 0; j < _x[0].size(); j++)
+      x[i][j] = _x[i][j];
 
   y.resize(_y.size());
   for (int i = 0; i < _y.size(); i++) y[i] = _y[i];
 }
 
-int main (int argc, char *const argv[])
+int main(int argc, char *const argv[])
 {
   if (argc <= 1) puts("usage: ./main datafile");
 
   std::ifstream ifs(argv[1]);
-  std::vector<Vector<double> > x;
+  Matrix<double> x;
   Vector<double> y;
   read_input(ifs, x, y);
 
   Vector<double> alpha;
 
-  solve_qp(x, y, alpha);
+  train_svm(x, y, alpha);
 
-  Vector<double> weight(0.0, x[0].size());
+  Vector<double> weight(0.0, x.ncols());
   for(int i = 0; i < alpha.size(); i++)
-    weight += alpha[i] * y[i] * x[i];
+    weight += alpha[i] * y[i] * x.extractRow(i);
 
-  double theta = dot_prod(weight, x[0]) - y[0];
+  double theta = dot_prod(weight, x.extractRow(0)) - y[0];
 
-  Vector<double> a(x[0].size());
+  Vector<double> a(x.ncols());
   a[0] = 0.0; a[1] = 0.0;
   printf("%f\n", dot_prod(weight, a) - theta);
   a[0] = 20.0; a[1] = 20.0;
