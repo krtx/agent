@@ -1,4 +1,5 @@
 #include <iostream>
+#include <algorithm>
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -48,7 +49,10 @@ void read_input(std::istream& ifs, Matrix<double>& x, Vector<double>& y)
     
     while (is >> val) v.push_back(val);
     _y.push_back(v.back()); v.pop_back();
-    _x.push_back(v);
+    if (find(_x.begin(), _x.end(), v) == _x.end())
+      _x.push_back(v);
+    else
+      _y.pop_back();
   }
 
   x.resize(_x.size(), _x[0].size());
@@ -72,6 +76,9 @@ int main(int argc, char *const argv[])
   Vector<double> alpha;
 
   train_svm(x, y, alpha);
+
+  for (int i = 0; i < alpha.size(); i++)
+    printf("alpha[%d] = %.6f\n", i, alpha[i]);
 
   Vector<double> weight(0.0, x.ncols());
   for(int i = 0; i < alpha.size(); i++)
