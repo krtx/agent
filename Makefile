@@ -1,7 +1,7 @@
 
 CC = g++
 CFLAGS = -Wall
-OBJS = QuadProg++.o Array.o main.o
+OBJS = QuadProg++.o Array.o kernel.o main.o
 PROGRAM = main
 
 all: $(PROGRAM)

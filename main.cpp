@@ -6,10 +6,12 @@
 #include <string>
 #include <cstdio>
 #include "QuadProg++.hh"
+#include "kernel.h"
 
 double train_svm(Matrix<double> x,
                  Vector<double> y,
-                 Vector<double>& alpha)
+                 Vector<double>& alpha,
+                 Kernel* kernel = new DotProd())
 {
   int r = x.nrows();
   int n = r, m = r, p = 1;
@@ -18,7 +20,7 @@ double train_svm(Matrix<double> x,
   
   for (int i = 0; i < n; i++)
     for (int j = 0; j < m; j++) {
-      G[i][j] = dot_prod(x.extractRow(i), x.extractRow(j)) * y[i] * y[j];
+      G[i][j] = (*kernel)(x.extractRow(i), x.extractRow(j)) * y[i] * y[j];
       if (i == j) G[i][j] += 1.9e-9;
     }
   for (int i = 0; i < n; i++) g0[i] = -1.0;
