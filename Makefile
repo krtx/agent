@@ -1,7 +1,7 @@
 
 CC = g++
-CFLAGS = -Wall -lboost_program_options
-OBJS = QuadProg++.o Array.o kernel.o main.o
+CFLAGS = -Wall -O2 -lboost_program_options
+OBJS = QuadProg++.o Array.o main.o
 PROGRAM = main
 
 all: $(PROGRAM)
