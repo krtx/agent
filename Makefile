@@ -1,12 +1,12 @@
 
 CC = g++
-CFLAGS = -Wall
+CFLAGS = -Wall -lboost_program_options
 OBJS = QuadProg++.o Array.o kernel.o main.o
 PROGRAM = main
 
 all: $(PROGRAM)
 
 $(PROGRAM): $(OBJS)
-						$(CC) $(OBJS) -o $(PROGRAM)
+						$(CC) $(CFLAGS) $(OBJS) -o $(PROGRAM)
 
 clean:; rm -f *.o *~ $(PROGRAM)
