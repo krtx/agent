@@ -60,7 +60,10 @@ int main(int argc, char *const argv[])
      "use gaussian kernel (one parameter)")
     ("hyperbolic,y",
      po::value<std::vector<double> >()->multitoken(),
-     "use hyperbolic kernel (two parameters)");
+     "use hyperbolic kernel (two parameters)")
+    ("penalty,C",
+     po::value<double>(),
+     "soft margin svm parameter");
 
   po::variables_map argmap;
   try {
@@ -102,7 +105,10 @@ int main(int argc, char *const argv[])
   }
   else k = new DotProd();
 
-  SVM svm(x, y, k);
+  double c = -1.0;
+  if (argmap.count("penalty")) c = argmap["penalty"].as<double>();
+
+  SVM svm(x, y, k, c);
 
   svm.dump_alpha();
 

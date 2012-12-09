@@ -51,25 +51,37 @@ private:
 
 class SVM {
 public:
-  SVM(Matrix<double> x, Vector<double> y, Kernel* kernel = new DotProd()):kernel(kernel), x(x), y(y) {
+  SVM(Matrix<double> x,
+      Vector<double> y,
+      Kernel* kernel = new DotProd(),
+      double c = -1.0):kernel(kernel), x(x), y(y) {
     int r = x.nrows();
-    int n = r, m = r, p = 1;
-    Matrix<double> G(n, m), CE(n, p), CI(n, m);
-    Vector<double> g0(n), ce0(p), ci0(m);
+    int n = r;
+    Matrix<double> G(n, n), CE(1.0 * n, 1), CI;
+    Vector<double> g0(-1.0, n), ce0(0.0, 1), ci0;
   
     for (int i = 0; i < n; i++)
-      for (int j = 0; j < m; j++) {
+      for (int j = 0; j < n; j++) {
         G[i][j] = (*kernel)(x.extractRow(i), x.extractRow(j)) * y[i] * y[j];
         // add an minute value to diagonal elements
         if (i == j) G[i][j] += 1.9e-9;
       }
-    for (int i = 0; i < n; i++) g0[i] = -1.0;
     for (int i = 0; i < n; i++) CE[i][0] = y[i];
-    ce0[0] = 0.0;
-    for (int i = 0; i < n; i++)
-      for (int j = 0; j < m; j++)
-        CI[i][j] = i == j ? 1.0 : 0.0;
-    for (int i = 0; i < m; i++) ci0[i] = 0.0;
+    
+    if (c < 1e-9) { // hard margin svm
+      CI.resize(0.0, n, n);
+      ci0.resize(0.0, n);
+      for (int i = 0; i < n; i++) CI[i][i] = 1.0;
+    }
+    else { // soft margin svm
+      CI.resize(0.0, n, 2 * n);
+      ci0.resize(0.0, 2 * n);
+      for (int i = 0; i < n; i++) {
+        CI[i][i] = 1.0;
+        CI[i][i + n] = -1.0;
+      }
+      for (int i = 0; i < n; i++) ci0[i + n] = c;
+    }
 
     alpha.resize(n);
 
