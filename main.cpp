@@ -110,8 +110,21 @@ int main(int argc, char *const argv[])
 
   SVM svm(x, y, k, c);
 
-  svm.dump_alpha();
+  //svm.dump_alpha();
 
+  double
+    x0 = min(x.extractColumn(0)), x1 = max(x.extractColumn(0)),
+    y0 = min(x.extractColumn(1)), y1 = max(x.extractColumn(1));
+  int total = 25;
+  double delta = std::max((x1 - x0) / total, (y1 - y0) / total);
+  for (double ay = y0; ay < y1; ay += delta) {
+    for (double ax = x0; ax < x1; ax += delta) {
+      Vector<double> v(2); v[0] = ax; v[1] = ay;
+      printf("%f %f %f\n", ax, ay, svm.discriminant(v));
+    }
+    puts("");
+  }
+  
   return 0;
 }
 

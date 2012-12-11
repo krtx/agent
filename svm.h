@@ -113,7 +113,7 @@ private:
 
   double sum(Vector<double> v) {
     double ret = 0.0;
-    for (int i = 0; i < x.ncols(); i++)
+    for (int i = 0; i < x.nrows(); i++)
       ret += alpha[i] * y[i] * (*kernel)(v, x.extractRow(i));
     return ret;
   }
