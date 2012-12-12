@@ -114,7 +114,7 @@ private:
   double sum(Vector<double> v) {
     double ret = 0.0;
     for (int i = 0; i < x.nrows(); i++)
-      ret += alpha[i] * y[i] * (*kernel)(v, x.extractRow(i));
+      ret += alpha[i] * y[i] * (*kernel)(x.extractRow(i), v);
     return ret;
   }
 };
