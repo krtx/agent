@@ -56,11 +56,11 @@ void backward_elimination(const Matrix<double>& U, Vector<double>& x, const Vect
 double scalar_product(const Vector<double>& x, const Vector<double>& y);
 double distance(double a, double b);
 
-// Utility functions for printing vectors and matrices
-void print_matrix(char* name, const Matrix<double>& A, int n = -1, int m = -1);
+// // Utility functions for printing vectors and matrices
+// void print_matrix(char* name, const Matrix<double>& A, int n = -1, int m = -1);
 
-template<typename T>
-void print_vector(char* name, const Vector<T>& v, int n = -1);
+// template<typename T>
+// void print_vector(char* name, const Vector<T>& v, int n = -1);
 
 // The Solving function, implementing the Goldfarb-Idnani method
 

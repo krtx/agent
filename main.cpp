@@ -41,6 +41,43 @@ void read_input(std::istream& ifs, Matrix<double>& x, Vector<double>& y)
   for (int i = 0; i < _y.size(); i++) y[i] = _y[i];
 }
 
+double cross_validation(Matrix<double> x, Vector<double> y, Kernel *k, double c, int cross = -1)
+{
+  // 交差検定
+  int group = cross;
+  if (group <= 0) group = 1 + log2(x.nrows());
+  int size = x.nrows() / group;
+  double accuracy = 0.0;
+  for (int i = 0; i < group; i++) {
+    int si = i * size, sz = size + (i == group - 1 ? (x.nrows() % size) : 0);
+    Matrix<double> samplex(x.nrows() - sz, x.ncols()), testx(sz, x.ncols());
+    Vector<double> sampley(y.size() - sz), testy(sz);
+    for (int j = 0; j < x.nrows(); j++) {
+      if (j < si) {
+        samplex.setRow(j, x.extractRow(j));
+        sampley[j] = y[j];
+      }
+      else if (j < si + sz) {
+        testx.setRow(j - si, x.extractRow(j));
+        testy[j - si] = y[j];
+      }
+      else {
+        samplex.setRow(j - sz, x.extractRow(j));
+        sampley[j - sz] = y[j];
+      }
+    }
+    SVM svm(samplex, sampley, k, c);
+    int pass = 0;
+    for (int j = 0; j < sz; j++)
+      if (svm.discriminant(testx.extractRow(j)) * testy[j] > 0.0) pass++;
+    double acc = pass / (double)sz * 100.0;
+    printf("loop #%d :: %f\n", i, acc);
+    accuracy += acc / group;
+  }
+  printf("total accuracy :: %f\n", accuracy);
+  return accuracy;
+}
+
 int main(int argc, char *const argv[])
 {
   po::positional_options_description p;
@@ -65,7 +102,12 @@ int main(int argc, char *const argv[])
      po::value<double>(),
      "soft margin svm parameter")
     ("graph",
-     "output graph data");
+     "output graph data")
+    ("dump-alpha",
+     "dump alpha values")
+    ("validation",
+     po::value<int>()->implicit_value(-1),
+     "evaluate SVM by cross validation");
 
   po::variables_map argmap;
   try {
@@ -110,15 +152,12 @@ int main(int argc, char *const argv[])
   double c = -1.0;
   if (argmap.count("penalty")) c = argmap["penalty"].as<double>();
 
-  SVM svm(x, y, k, c);
-
-  //svm.dump_alpha();
-
   if (argmap.count("graph")) {
     if (x.ncols() > 2) {
       std::cerr << "グラフは二次元データだけ" << std::endl;
       return 1;
     }
+    SVM svm(x, y, k, c);
     double
       x0 = min(x.extractColumn(0)) - 5.0, x1 = max(x.extractColumn(0)) + 5.0,
       y0 = min(x.extractColumn(1)) - 5.0, y1 = max(x.extractColumn(1)) + 5.0;
@@ -132,9 +171,9 @@ int main(int argc, char *const argv[])
       puts("");
     }
   }
-  else {
-    svm.dump_alpha();
-  }
+
+  if (argmap.count("validation"))
+    cross_validation(x, y, k, c, argmap["validation"].as<int>());
   
   return 0;
 }
