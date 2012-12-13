@@ -41,6 +41,13 @@ void read_input(std::istream& ifs, Matrix<double>& x, Vector<double>& y)
   for (int i = 0; i < _y.size(); i++) y[i] = _y[i];
 }
 
+// scaling x to [s,t]
+Matrix<double> scaling(Matrix<double> x, double s, double t)
+{
+  double m0 = min(min(x)), m1 = max(max(x));
+  return x * (t - s) / (m1 - m0);
+}
+
 double cross_validation(Matrix<double> x, Vector<double> y, Kernel *k, double c, int cross = -1)
 {
   // 交差検定
