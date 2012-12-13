@@ -114,7 +114,10 @@ int main(int argc, char *const argv[])
      "dump alpha values")
     ("validation",
      po::value<int>()->implicit_value(-1),
-     "evaluate SVM by cross validation");
+     "evaluate SVM by cross validation")
+    ("scaling,s",
+     po::value<std::vector<double> >()->multitoken(),
+     "scaling input data");
 
   po::variables_map argmap;
   try {
@@ -144,6 +147,15 @@ int main(int argc, char *const argv[])
   Vector<double> y;
   read_input(ifs, x, y);
 
+  if (argmap.count("scaling")) {
+    std::vector<double> v = argmap["scaling"].as<std::vector<double> >();
+    if (v.size() != 2) {
+      std::cerr << "just 2 parameteres required for scaling" << std::endl << opt << std::endl;
+      return 1;
+    }
+    x = scaling(x, std::min(v[0], v[1]), std::max(v[0], v[1]));
+  }
+
   Kernel *k;
 
   if (argmap.count("polynomial"))
@@ -152,6 +164,10 @@ int main(int argc, char *const argv[])
     k = new Gaussian(argmap["gaussian"].as<double>());
   else if (argmap.count("hyperbolic")) {
     std::vector<double> v = argmap["hyperbolic"].as<std::vector<double> >();
+    if (v.size() != 2) {
+      std::cerr << "just 2 parameteres required for the hyperbolic kernel" << std::endl << opt << std::endl;
+      return 1;
+    }
     k = new Hyperbolic(v[0], v[1]);
   }
   else k = new DotProd();
