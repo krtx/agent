@@ -20,7 +20,7 @@ void read_input(std::istream& ifs, Matrix<double>& x, Vector<double>& y)
   std::string line;
   while (ifs && getline(ifs, line)) {
     std::istringstream is(line);
-    std::vector<double> v; int val;
+    std::vector<double> v; double val;
     
     while (is >> val) v.push_back(val);
     _y.push_back(v.back()); v.pop_back();
@@ -88,7 +88,7 @@ double cross_validation(Matrix<double> x, Vector<double> y, Kernel *k, double c,
 int main(int argc, char *const argv[])
 {
   po::positional_options_description p;
-  po::options_description opt("option");
+  po::options_description opt("options");
 
   p.add("input-file", -1);
   
@@ -108,16 +108,18 @@ int main(int argc, char *const argv[])
     ("penalty,C",
      po::value<double>(),
      "soft margin svm parameter")
-    ("graph",
-     "output graph data")
     ("dump-alpha",
      "dump alpha values")
+    ("graph",
+     "output graph data")
     ("validation",
      po::value<int>()->implicit_value(-1),
      "evaluate SVM by cross validation")
     ("scaling,s",
      po::value<std::vector<double> >()->multitoken(),
-     "scaling input data");
+     "scaling input data")
+    ("dump-scaled-data",
+     "output scaled input data");
 
   po::variables_map argmap;
   try {
@@ -154,6 +156,13 @@ int main(int argc, char *const argv[])
       return 1;
     }
     x = scaling(x, std::min(v[0], v[1]), std::max(v[0], v[1]));
+    if (argmap.count("dump-scaled-data")) {
+      for (int i = 0; i < x.nrows(); i++) {
+        for (int j = 0; j < x.ncols(); j++)
+          printf("%f ", x.extractRow(i)[j]);
+        printf("%f\n", y[i]);
+      }
+    }
   }
 
   Kernel *k;
@@ -165,7 +174,7 @@ int main(int argc, char *const argv[])
   else if (argmap.count("hyperbolic")) {
     std::vector<double> v = argmap["hyperbolic"].as<std::vector<double> >();
     if (v.size() != 2) {
-      std::cerr << "just 2 parameteres required for the hyperbolic kernel" << std::endl << opt << std::endl;
+      std::cerr << "just 2 parameteres are required for the hyperbolic kernel" << std::endl << opt << std::endl;
       return 1;
     }
     k = new Hyperbolic(v[0], v[1]);
@@ -175,6 +184,11 @@ int main(int argc, char *const argv[])
   double c = -1.0;
   if (argmap.count("penalty")) c = argmap["penalty"].as<double>();
 
+  if (argmap.count("dump-alpha")) {
+    SVM svm(x, y, k, c);
+    svm.dump_alpha();
+  }
+
   if (argmap.count("graph")) {
     if (x.ncols() > 2) {
       std::cerr << "グラフは二次元データだけ" << std::endl;
@@ -182,12 +196,13 @@ int main(int argc, char *const argv[])
     }
     SVM svm(x, y, k, c);
     double
-      x0 = min(x.extractColumn(0)) - 5.0, x1 = max(x.extractColumn(0)) + 5.0,
-      y0 = min(x.extractColumn(1)) - 5.0, y1 = max(x.extractColumn(1)) + 5.0;
+      x0 = min(x.extractColumn(0)), x1 = max(x.extractColumn(0)),
+      y0 = min(x.extractColumn(1)), y1 = max(x.extractColumn(1));
+    double mgn = std::max(x1 - x0, y1 - y0) * 0.1;
     int total = 50;
-    double delta = std::max((x1 - x0) / total, (y1 - y0) / total);
-    for (double ay = y0; ay <= y1; ay += delta) {
-      for (double ax = x0; ax <= x1; ax += delta) {
+    double delta = std::max(x1 - x0, y1 - y0) / total;
+    for (double ay = y0 - mgn; ay <= y1 + mgn; ay += delta) {
+      for (double ax = x0 - mgn; ax <= x1 + mgn; ax += delta) {
         Vector<double> v(2); v[0] = ax; v[1] = ay;
         printf("%f %f %f\n", ax, ay, svm.discriminant(v));
       }

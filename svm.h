@@ -92,7 +92,12 @@ public:
       throw;
     }
 
-    theta = sum(x.extractRow(0)) - y[0];
+    for (int i = 0; i < x.nrows(); i++) {
+      if (alpha[i] > 1e-6) {
+        theta = sum(x.extractRow(i)) - y[i];
+        break;
+      }
+    }
   };
 
   void dump_alpha() {
