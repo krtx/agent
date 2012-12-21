@@ -1,6 +1,6 @@
 
 CC := g++
-CFLAGS := -Wall -O2 -lboost_program_options
+CFLAGS := -I. -Wall -std=c++11 -lboost_program_options -O2 -Ilib
 SRCS := Array.cc QuadProg++.cc main.cpp
 OBJS := $(shell echo $(SRCS) | sed -e 's/.cc\|.cpp/.o/g')
 DEPS := $(shell echo $(SRCS) | sed -e 's/.cc\|.cpp/.d/g')
