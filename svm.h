@@ -43,7 +43,7 @@ class Hyperbolic : public Kernel {
 public:
   Hyperbolic(double a, double b):a(a), b(b){};
   double operator() (const Vector<double> x, const Vector<double> y) {
-    return tanh(a * dot_prod(x, y) + b);
+    return tanh(a * dot_prod(x, y) - b);
   };
 private:
   double a, b;
