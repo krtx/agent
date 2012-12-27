@@ -43,7 +43,7 @@ class Hyperbolic : public Kernel {
 public:
   Hyperbolic(double a, double b):a(a), b(b){};
   double operator() (const Vector<double> x, const Vector<double> y) {
-    return tanh(a * dot_prod(x, y) - b);
+    return tanh(a * dot_prod(x, y) + b);
   };
 private:
   double a, b;
@@ -64,7 +64,7 @@ public:
       for (int j = 0; j < n; j++) {
         G[i][j] = (*kernel)(x.extractRow(i), x.extractRow(j)) * y[i] * y[j];
         // add an minute value to diagonal elements
-        if (i == j) G[i][j] += 1.9e-9;
+        if (i == j) G[i][j] += 1.0e-6;
       }
     for (int i = 0; i < n; i++) CE[i][0] = y[i];
     
