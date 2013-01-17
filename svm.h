@@ -92,7 +92,7 @@ public:
       throw;
     }
 
-    for (int i = 0; i < x.nrows(); i++) {
+    for (size_t i = 0; i < x.nrows(); i++) {
       if (alpha[i] > 1e-6) {
         theta = sum(x.extractRow(i)) - y[i];
         break;
@@ -101,8 +101,8 @@ public:
   };
 
   void dump_alpha() {
-    for (int i = 0; i < alpha.size(); i++)
-      printf("alpha[%d] = %.6f\n", i, alpha[i]);
+    for (size_t i = 0; i < alpha.size(); i++)
+      printf("alpha[%zu] = %.6f\n", i, alpha[i]);
   };
 
   double discriminant(Vector<double> v) {
@@ -118,7 +118,7 @@ private:
 
   double sum(Vector<double> v) {
     double ret = 0.0;
-    for (int i = 0; i < x.nrows(); i++)
+    for (size_t i = 0; i < x.nrows(); i++)
       ret += alpha[i] * y[i] * (*kernel)(x.extractRow(i), v);
     return ret;
   }
