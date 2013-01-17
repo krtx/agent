@@ -211,7 +211,7 @@ int main(int argc, char *const argv[])
 
   if (argmap.count("validation"))
     cross_validation(x, y, k, c, argmap["validation"].as<int>());
-  
+
   return 0;
 }
 
