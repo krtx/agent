@@ -9,6 +9,7 @@
 #include <boost/program_options.hpp>
 #include "QuadProg++.hh"
 #include "svm.h"
+#include "client.h"
 
 namespace po = boost::program_options;
 
@@ -86,6 +87,7 @@ double cross_validation(Matrix<double> x, Vector<double> y, Kernel *k, double c,
 
 int main(int argc, char *const argv[])
 {
+  /*
   po::positional_options_description p;
   po::options_description opt("options");
 
@@ -211,6 +213,21 @@ int main(int argc, char *const argv[])
 
   if (argmap.count("validation"))
     cross_validation(x, y, k, c, argmap["validation"].as<int>());
+  */
+
+  char *host, *log_file;
+  unsigned short port = 5000;
+
+  if (argc < 3) {
+    std::cout << "usage: client [logfile] [hostname] [port]\n";
+    exit(1);
+  }
+
+  log_file = (char *)argv[1];
+  host = (char *)argv[2];
+  port = atoi(argv[3]);
+
+  Client cl(log_file, host, port);
 
   return 0;
 }

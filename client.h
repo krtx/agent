@@ -1,3 +1,6 @@
+#ifndef CLIENT_H
+#define CLIENT_H
+
 #include <iostream>
 #include <vector>
 #include <fstream>
@@ -15,13 +18,13 @@
 #include "QuadProg++.hh"
 #include "svm.h"
 
-
 #define BUF_LEN 256
 
 class Client {
 public:
   Client(std::string log_file, std::string host, unsigned short port = 5000)
     :log_file(log_file), host(host), port(port) {
+    // ログファイルがあるかチェック
     std::ifstream ifs(log_file.c_str());
     first_day = !ifs ? true : false;
     start_connection();
@@ -120,6 +123,14 @@ public:
           y[i][j][k] = _y[i * n + j][k];
       }
     }
+    
+    Kernel *k = new Gaussian(10.0);
+    svms = std::vector<std::vector<SVM> >(m);
+    for (size_t i = 0; i < m; i++) {
+      //svms[i] = std::vector<SVM>(n);
+      for (size_t j = 0; j < n; j++)
+        svms[i].push_back(SVM(x, y[i][j], k, 10));
+    }
   }
 
   void run() {
@@ -215,6 +226,7 @@ private:
   }
 };  
 
+/*
 int main(int argc, char *argv[])
 {
   char *host, *log_file;
@@ -235,3 +247,6 @@ int main(int argc, char *argv[])
   return 0;
 }
 
+*/
+
+#endif
