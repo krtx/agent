@@ -34,12 +34,12 @@ void read_input(std::istream& ifs, Matrix<double>& x, Vector<double>& y)
   }
 
   x.resize(_x.size(), _x[0].size());
-  for (int i = 0; i < _x.size(); i++)
-    for (int j = 0; j < _x[0].size(); j++)
+  for (size_t i = 0; i < _x.size(); i++)
+    for (size_t j = 0; j < _x[0].size(); j++)
       x[i][j] = _x[i][j];
 
   y.resize(_y.size());
-  for (int i = 0; i < _y.size(); i++) y[i] = _y[i];
+  for (size_t i = 0; i < _y.size(); i++) y[i] = _y[i];
 }
 
 // scaling x to [s,t]
@@ -56,10 +56,10 @@ double cross_validation(Matrix<double> x, Vector<double> y, Kernel *k, double c,
   int size = x.nrows() / group;
   double accuracy = 0.0;
   for (int i = 0; i < group; i++) {
-    int si = i * size, sz = size + (i == group - 1 ? (x.nrows() % size) : 0);
+    size_t si = i * size, sz = size + (i == group - 1 ? (x.nrows() % size) : 0);
     Matrix<double> samplex(x.nrows() - sz, x.ncols()), testx(sz, x.ncols());
     Vector<double> sampley(y.size() - sz), testy(sz);
-    for (int j = 0; j < x.nrows(); j++) {
+    for (size_t j = 0; j < x.nrows(); j++) {
       if (j < si) {
         samplex.setRow(j, x.extractRow(j));
         sampley[j] = y[j];
@@ -75,7 +75,7 @@ double cross_validation(Matrix<double> x, Vector<double> y, Kernel *k, double c,
     }
     SVM svm(samplex, sampley, k, c);
     int pass = 0;
-    for (int j = 0; j < sz; j++)
+    for (size_t j = 0; j < sz; j++)
       if (svm.discriminant(testx.extractRow(j)) * testy[j] > 0.0) pass++;
     double acc = pass / (double)sz * 100.0;
     printf("loop #%d :: %f\n", i, acc);
@@ -215,20 +215,21 @@ int main(int argc, char *const argv[])
     cross_validation(x, y, k, c, argmap["validation"].as<int>());
   */
 
-  char *host, *log_file;
+  char *host, *log_file, *ev_file;
   unsigned short port = 5000;
 
   if (argc < 3) {
-    std::cout << "usage: client [logfile] [hostname] [port]\n";
+    std::cout << "usage: client [logfile] [evfile] [hostname] [port]\n";
     exit(1);
   }
 
   log_file = (char *)argv[1];
-  host = (char *)argv[2];
-  port = atoi(argv[3]);
+  ev_file = (char *)argv[2];
+  host = (char *)argv[3];
+  port = atoi(argv[4]);
 
   Client cl(log_file, host, port);
-  cl.start();
+  cl.start(ev_file);
 
   return 0;
 }

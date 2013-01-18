@@ -3,11 +3,13 @@
 
 #include <iostream>
 #include <vector>
+#include <bitset>
 #include <fstream>
 #include <sstream>
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
+#include <cmath>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -19,6 +21,7 @@
 #include "svm.h"
 
 #define BUF_LEN 256
+#define ITEM_MAX 1000
 
 class Client {
  public:
@@ -31,9 +34,11 @@ class Client {
 
   ~Client() { close(s); }
 
-  void start () {
+  void start (std::string ev_file) {
     start_connection();
     if (!first_day) load_data();
+    load_eval(ev_file.c_str());
+    tendering.reset();
     run();
     dump();
   }
@@ -57,11 +62,50 @@ class Client {
   std::vector<std::vector<int> > prices;
   std::vector<std::vector<std::string> > tenders;
   std::vector<std::vector<SVM> > svms;
-  
+
+  std::vector<int> evals;
+  std::bitset<ITEM_MAX> tendering;
+
+  void load_eval(std::string filename) {
+    evals.resize((int)pow(2, n) - 1);
+    std::ifstream ifs(filename.c_str());
+    std::string tmp;
+    while (ifs >> tmp) {
+      int val = atoi(tmp.substr(tmp.find(':') + 1).c_str());
+      tmp = tmp.substr(0, tmp.find(':'));
+      int idx = 0;
+      for (size_t i = 0, j = 1; i < tmp.length(); i++, j *= 2)
+        if (tmp[i] == '1') idx += j;
+      evals[idx - 1] = val;
+    }
+
+    for (size_t i = 0; i < evals.size(); i++)
+      printf("%d%c", evals[i], i == evals.size() - 1 ? '\n' : ' ');
+  }
+
   std::string decide() {
-    // tender to item 1
-    std::string ret = "1" + std::string(n - 1, '0');
-    return ret;
+    std::bitset<ITEM_MAX> others(0);
+    int sum = 0;
+    Vector<double> prc(n);
+    for (size_t i = 0; i < n; i++) sum += (prc[i] = prices.back()[i]);
+    for (size_t i = 0; i < m; i++) for (size_t j = 0; j < n; j++) {
+        if (others[j]) break;
+        if (svms[i][j].discriminant(prc) > 0.0) others[j] = true;
+      }
+
+    int mx = -1;
+    std::bitset<ITEM_MAX> mxs, s(0);
+    do {
+      s = std::bitset<ITEM_MAX>(s.to_ulong() + 1);
+      if ((s & tendering) != s) continue;
+      int profit = evals[s.to_ulong() - 1] - (sum + (s & others).count());
+      if (profit > mx) {
+        mx = profit; mxs = s;
+      }
+    } while (s.count() < n);
+
+    if (mx < 0) return std::string(n, '0');
+    return mxs.to_string();
   }
 
   void start_connection () {
@@ -164,27 +208,26 @@ class Client {
   }
 
   void run() {
+    prices.push_back(std::vector<int>(n, 0));
     while (1) {
       puts("-------------------------------------");
       std::string dec = decide() + "\n";
+      printf("## %s ##\n", dec.c_str());
       write(s, dec.c_str(), n + 1);
       /*
-        fgets(buf, BUF_LEN, stdin);
-        write(s, buf, strlen(buf));
+      fgets(buf, BUF_LEN, stdin);
+      write(s, buf, strlen(buf));
       */
 
-      // current prices and tenders
+      // current prices and tenders (current prices are ignored)
       // "g1:1 g2:1 g3:1 a1:100 a2:010 a3:110 a4:100"
       if ((read_size = read(s, buf, BUF_LEN)) > 0)
         write(1, buf, read_size);
       buf[read_size] = '\0';
-      std::vector<int> ps;
       std::stringstream ss(buf);
       for (size_t i = 0; i < n; i++) {
         std::string tmp; ss >> tmp;
-        ps.push_back(atoi(tmp.substr(tmp.find(':') + 1).c_str()));
       }
-      prices.push_back(ps);
       std::vector<std::string> ts;
       for (size_t i = 0; i < m; i++) {
         std::string tmp; ss >> tmp;
@@ -192,13 +235,21 @@ class Client {
       }
       tenders.push_back(ts);
       
-      // consequent prices (ignored)
+      // consequent prices
       if ((read_size = read(s, buf, BUF_LEN)) > 0)
         write(1, buf, read_size);
       buf[read_size] = '\0';
       if (std::string(buf).find("end") != std::string::npos) break;
+      ss.str(""); ss.clear(); ss.str(buf);
+      std::vector<int> ps;
+      for (size_t i = 0; i < n; i++) {
+        std::string tmp; ss >> tmp;
+        ps.push_back(atoi(tmp.substr(tmp.find(':') + 1).c_str()));
+      }
+      prices.push_back(ps);
     }
 
+    // caluculate the cost
     // "winner g1:2 g2:1 "
     read_size = read(s, buf, BUF_LEN);
     buf[read_size] = '\0';
@@ -234,28 +285,5 @@ class Client {
     }
   }
 };  
-
-/*
-  int main(int argc, char *argv[])
-  {
-  char *host, *log_file;
-  unsigned short port = 5000;
-
-  if (argc < 3) {
-  std::cout << "usage: client [logfile] [hostname] [port]\n";
-  exit(1);
-  }
-
-  log_file = (char *)argv[1];
-  host = (char *)argv[2];
-  port = atoi(argv[3]);
-
-  Client cl(log_file, host, port);
-  //cl.run();
-
-  return 0;
-  }
-
-*/
 
 #endif

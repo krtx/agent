@@ -6,4 +6,4 @@ main
 .\#*
 *.swp
 client
-log_file
+log*
