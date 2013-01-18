@@ -22,8 +22,10 @@ class Client {
 public:
   Client(std::string log_file, std::string host, unsigned short port = 5000)
     :log_file(log_file), host(host), port(port) {
+    std::ifstream ifs(log_file.c_str());
+    first_day = !ifs ? true : false;
     start_connection();
-    load_data();
+    if (!first_day) load_data();
     run();
   }
 
@@ -90,9 +92,33 @@ public:
   void load_data() {
     std::ifstream ifs(log_file.c_str());
     char buf[BUF_LEN];
-    Matrix<double> x;
-    std::vector<Vector<double> > y;
+    size_t n, m; ifs >> n >> m;
+    std::vector<std::vector<double> > _x;
+    std::vector<std::vector<double> > _y(n*m);
     while (ifs.getline(buf, BUF_LEN)) {
+      std::vector<double> tmp;
+      for (size_t i = 0; i < n; i++) {
+        double t; ifs >> t; tmp.push_back(t);
+      }
+      _x.push_back(tmp);
+      tmp.clear();
+      for (size_t i = 0; i < m; i++) {
+        std::string s; ifs >> s;
+        for (size_t j = 0; j < n; j++)
+          _y[i * n + j].push_back(s[j] * 2 - 1);
+      }
+    }
+    Matrix<double> x(_x.size(), _x[0].size());
+    for (size_t i = 0; i < _x.size(); i++)
+      for (size_t j = 0; j < _x[0].size(); j++) x[i][j] = _x[i][j];
+    std::vector<std::vector<Vector<double> > > y(m);
+    for (size_t i = 0; i < m; i++) {
+      y[i] = std::vector<Vector<double> >(n);
+      for (size_t j = 0; j < n; j++) {
+        y[i][j] = Vector<double>(_y[0].size());
+        for (size_t k = 0; k < _y[0].size(); k++)
+          y[i][j][k] = _y[i * n + j][k];
+      }
     }
   }
 
@@ -155,6 +181,7 @@ public:
 
   void dump() {
     std::ofstream ofs(log_file.c_str(), std::ios::out | std::ios::app);
+    if (first_day) ofs << n << " " << m << std::endl;
     for (size_t i = 0; i < prices.size(); i++) {
       for (size_t j = 0; j < n; j++) ofs << prices[i][j] << " ";
       for (size_t j = 0; j < m; j++) ofs << tenders[i][j] << " ";
@@ -163,6 +190,7 @@ public:
   }
 private:
   std::string log_file;
+  bool first_day;
 
   // variables for socket
   int s;
@@ -189,18 +217,19 @@ private:
 
 int main(int argc, char *argv[])
 {
-  char *host;
+  char *host, *log_file;
   unsigned short port = 5000;
 
   if (argc < 3) {
-    std::cout << "usage: client [hostname] [port]\n";
+    std::cout << "usage: client [logfile] [hostname] [port]\n";
     exit(1);
   }
 
-  host = (char *)argv[1];
-  port = atoi(argv[2]);
+  log_file = (char *)argv[1];
+  host = (char *)argv[2];
+  port = atoi(argv[3]);
 
-  Client cl("log_file", host, port);
+  Client cl(log_file, host, port);
   //cl.run();
 
   return 0;
