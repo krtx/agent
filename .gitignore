@@ -5,5 +5,5 @@ main
 \#*\#
 .\#*
 *.swp
-out
 client
+log_file

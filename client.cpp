@@ -12,22 +12,28 @@
 #include <sys/param.h>
 #include <sys/uio.h>
 #include <unistd.h>
+#include "QuadProg++.hh"
 #include "svm.h"
+
 
 #define BUF_LEN 256
 
 class Client {
 public:
-  Client(char *host, unsigned short port = 5000):host(host),port(port) {
+  Client(std::string log_file, std::string host, unsigned short port = 5000)
+    :log_file(log_file), host(host), port(port) {
+    start_connection();
+    load_data();
+    run();
   }
 
   ~Client() { close(s); }
 
   void start_connection () {
     try {
-      servhost = gethostbyname(host);
+      servhost = gethostbyname(host.c_str());
       if (servhost == NULL){
-        fprintf(stderr, "[%s] から IP アドレスへの変換に失敗しました。\n", host);
+        fprintf(stderr, "[%s] から IP アドレスへの変換に失敗しました。\n", host.c_str());
         throw;
       }
 
@@ -37,26 +43,27 @@ public:
       bcopy(servhost->h_addr, &server.sin_addr, servhost->h_length);
       server.sin_port = htons(port);
 
-      if ( ( s = socket(AF_INET, SOCK_STREAM, 0) ) < 0 ){
+      if ((s = socket(AF_INET, SOCK_STREAM, 0)) < 0){
         fprintf(stderr, "ソケットの生成に失敗しました。\n");
         throw;
       }
-      if ( connect(s, (struct sockaddr *)&server, sizeof(server)) == -1 ){
+      if (connect(s, (struct sockaddr *)&server, sizeof(server)) == -1){
         fprintf(stderr, "connect に失敗しました。\n");
         throw;
       }
+      
+      // "PLEASE INPUT YOUR NAME"
+      if ((read_size = read(s, buf, BUF_LEN)) > 0)
+        write(1, buf, read_size);
 
-      /* 名前の送信 */
-      read_size = read(s, buf, BUF_LEN);
-      if (read_size > 0) write(1, buf, read_size); // "PLEASE INPUT YOUR NAME"
-
-      fgets(buf, BUF_LEN, stdin); // input name
+      // input name
+      fgets(buf, BUF_LEN, stdin);
       write(s, buf, strlen(buf));
 
       // IDとクライアント名の対応
       // "a1:name1 a2:name2 ..."
-      read_size = read(s, buf, BUF_LEN);
-      if (read_size > 0) write(1, buf, read_size);
+      if ((read_size = read(s, buf, BUF_LEN)) > 0)
+        write(1, buf, read_size);
       buf[read_size] = '\0';
       std::stringstream ss(buf);
       std::string tmp;
@@ -64,14 +71,14 @@ public:
         cnames.push_back(tmp.substr(tmp.find(':') + 1));
 
       // "Your ID: x", x はクライアントID
-      read_size = read(s, buf, BUF_LEN);
-      if (read_size > 0) write(1, buf, read_size);
+      if ((read_size = read(s, buf, BUF_LEN)) > 0)
+        write(1, buf, read_size);
       buf[read_size] = '\0';
       sscanf(buf, "%*[^0-9]%d", &cid);
 
       // "n,m", n は商品数 m はクライアント数
-      read_size = read(s, buf, BUF_LEN);
-      if (read_size > 0) write(1, buf, read_size);
+      if ((read_size = read(s, buf, BUF_LEN)) > 0)
+        write(1, buf, read_size);
       buf[read_size] = '\0';
       sscanf(buf, "%zu%*[^0-9]%zu", &n, &m);
 
@@ -80,7 +87,13 @@ public:
     }
   }
 
-  void load_data () {
+  void load_data() {
+    std::ifstream ifs(log_file.c_str());
+    char buf[BUF_LEN];
+    Matrix<double> x;
+    std::vector<Vector<double> > y;
+    while (ifs.getline(buf, BUF_LEN)) {
+    }
   }
 
   void run() {
@@ -91,8 +104,8 @@ public:
 
       // current prices and tenders
       // "g1:1 g2:1 g3:1 a1:100 a2:010 a3:110 a4:100"
-      read_size = read(s, buf, BUF_LEN);
-      if (read_size > 0) write(1, buf, read_size);
+      if ((read_size = read(s, buf, BUF_LEN)) > 0)
+        write(1, buf, read_size);
       buf[read_size] = '\0';
       std::vector<int> ps;
       std::stringstream ss(buf);
@@ -109,8 +122,8 @@ public:
       tenders.push_back(ts);
       
       // consequent prices (ignored)
-      read_size = read(s, buf, BUF_LEN);
-      if (read_size > 0) write(1, buf, read_size);
+      if ((read_size = read(s, buf, BUF_LEN)) > 0)
+        write(1, buf, read_size);
       buf[read_size] = '\0';
       if (std::string(buf).find("end") != std::string::npos) break;
     }
@@ -138,11 +151,10 @@ public:
     }
     printf("TOTAL COST = %d\n", total_cost);
 
-    //dump("out");
   }
 
-  void dump(char *filename) {
-    std::ofstream ofs(filename, std::ios::out | std::ios::app);
+  void dump() {
+    std::ofstream ofs(log_file.c_str(), std::ios::out | std::ios::app);
     for (size_t i = 0; i < prices.size(); i++) {
       for (size_t j = 0; j < n; j++) ofs << prices[i][j] << " ";
       for (size_t j = 0; j < m; j++) ofs << tenders[i][j] << " ";
@@ -150,16 +162,17 @@ public:
     }
   }
 private:
+  std::string log_file;
+
   // variables for socket
   int s;
   struct hostent *servhost;
   struct sockaddr_in server;
   char buf[BUF_LEN];
   int read_size;
-  char *host;
+  std::string host;
   unsigned short port;
 
-  std::string log_file;
   int cid; // client id
   size_t n, m; // num of items, num of clients
   std::vector<std::string> cnames; // client names
@@ -187,8 +200,8 @@ int main(int argc, char *argv[])
   host = (char *)argv[1];
   port = atoi(argv[2]);
 
-  Client cl(host, port);
-  cl.run();
+  Client cl("log_file", host, port);
+  //cl.run();
 
   return 0;
 }
