@@ -228,6 +228,7 @@ int main(int argc, char *const argv[])
   port = atoi(argv[3]);
 
   Client cl(log_file, host, port);
+  cl.start();
 
   return 0;
 }

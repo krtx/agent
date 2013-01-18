@@ -21,19 +21,48 @@
 #define BUF_LEN 256
 
 class Client {
-public:
-  Client(std::string log_file, std::string host, unsigned short port = 5000)
-    :log_file(log_file), host(host), port(port) {
+ public:
+ Client(std::string log_file, std::string host, unsigned short port = 5000)
+   :log_file(log_file), host(host), port(port) {
     // ログファイルがあるかチェック
     std::ifstream ifs(log_file.c_str());
     first_day = !ifs ? true : false;
+  }
+
+  ~Client() { close(s); }
+
+  void start () {
     start_connection();
     if (!first_day) load_data();
     run();
     dump();
   }
 
-  ~Client() { close(s); }
+ private:
+  std::string log_file;
+  bool first_day;
+
+  // variables for socket
+  int s;
+  struct hostent *servhost;
+  struct sockaddr_in server;
+  char buf[BUF_LEN];
+  int read_size;
+  std::string host;
+  unsigned short port;
+
+  int cid; // client id
+  size_t n, m; // num of items, num of clients
+  std::vector<std::string> cnames; // client names
+  std::vector<std::vector<int> > prices;
+  std::vector<std::vector<std::string> > tenders;
+  std::vector<std::vector<SVM> > svms;
+  
+  std::string decide() {
+    // tender to item 1
+    std::string ret = "1" + std::string(n - 1, '0');
+    return ret;
+  }
 
   void start_connection () {
     try {
@@ -140,8 +169,8 @@ public:
       std::string dec = decide() + "\n";
       write(s, dec.c_str(), n + 1);
       /*
-      fgets(buf, BUF_LEN, stdin);
-      write(s, buf, strlen(buf));
+        fgets(buf, BUF_LEN, stdin);
+        write(s, buf, strlen(buf));
       */
 
       // current prices and tenders
@@ -204,42 +233,17 @@ public:
       ofs << std::endl;
     }
   }
-private:
-  std::string log_file;
-  bool first_day;
-
-  // variables for socket
-  int s;
-  struct hostent *servhost;
-  struct sockaddr_in server;
-  char buf[BUF_LEN];
-  int read_size;
-  std::string host;
-  unsigned short port;
-
-  int cid; // client id
-  size_t n, m; // num of items, num of clients
-  std::vector<std::string> cnames; // client names
-  std::vector<std::vector<int> > prices;
-  std::vector<std::vector<std::string> > tenders;
-  std::vector<std::vector<SVM> > svms;
-  
-  std::string decide() {
-    // tender to item 1
-    std::string ret = "1" + std::string(n - 1, '0');
-    return ret;
-  }
 };  
 
 /*
-int main(int argc, char *argv[])
-{
+  int main(int argc, char *argv[])
+  {
   char *host, *log_file;
   unsigned short port = 5000;
 
   if (argc < 3) {
-    std::cout << "usage: client [logfile] [hostname] [port]\n";
-    exit(1);
+  std::cout << "usage: client [logfile] [hostname] [port]\n";
+  exit(1);
   }
 
   log_file = (char *)argv[1];
@@ -250,7 +254,7 @@ int main(int argc, char *argv[])
   //cl.run();
 
   return 0;
-}
+  }
 
 */
 
