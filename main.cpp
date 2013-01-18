@@ -6,12 +6,12 @@
 #include <exception>
 #include <string>
 #include <cstdio>
-#include <boost/program_options.hpp>
+//#include <boost/program_options.hpp>
 #include "QuadProg++.hh"
 #include "svm.h"
 #include "client.h"
 
-namespace po = boost::program_options;
+//namespace po = boost::program_options;
 
 void read_input(std::istream& ifs, Matrix<double>& x, Vector<double>& y)
 {

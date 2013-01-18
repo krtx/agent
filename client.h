@@ -30,6 +30,7 @@ public:
     start_connection();
     if (!first_day) load_data();
     run();
+    dump();
   }
 
   ~Client() { close(s); }
@@ -138,6 +139,10 @@ public:
       puts("-------------------------------------");
       std::string dec = decide() + "\n";
       write(s, dec.c_str(), n + 1);
+      /*
+      fgets(buf, BUF_LEN, stdin);
+      write(s, buf, strlen(buf));
+      */
 
       // current prices and tenders
       // "g1:1 g2:1 g3:1 a1:100 a2:010 a3:110 a4:100"
