@@ -272,12 +272,14 @@ class Client {
     read_size = read(s, buf, BUF_LEN);
     buf[read_size] = '\0';
     bool win[n]; memset(win, 0, sizeof(win));
+    std::bitset<ITEM_MAX> ws(0);
     std::stringstream ss(buf);
     std::string tmp; ss >> tmp;
     for (size_t i = 0; i < n; i++) {
       ss >> tmp;
-      if (atoi(tmp.substr(tmp.find(':') + 1).c_str()) == cid)
-        win[i] = true;
+      if (atoi(tmp.substr(tmp.find(':') + 1).c_str()) == cid) {
+        win[i] = true; ws[i] = 1;
+      }
     }
     // "price g1:3 g2:2"
     read_size = read(s, buf, BUF_LEN);
@@ -289,8 +291,7 @@ class Client {
       if (win[i])
         total_cost += atoi(tmp.substr(tmp.find(':') + 1).c_str());
     }
-    printf("TOTAL COST = %d\n", total_cost);
-
+    printf("BENEFIT = %d(EVAL) - %d(COST) = %d\n", evals[ws.to_ulong() - 1], total_cost, evals[ws.to_ulong() - 1] - total_cost);
   }
 
   void dump() {
