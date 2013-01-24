@@ -95,7 +95,7 @@ class Client {
         }
     }
 
-    printf("現在の価格 ");
+    printf("current prices: ");
     for (size_t i = 0; i < n; i++) printf("[%d] ", prices.back()[i]);
     puts("");
 
