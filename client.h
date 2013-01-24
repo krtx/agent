@@ -84,6 +84,79 @@ class Client {
   }
 
   std::string decide() {
+    std::vector<int> cur_price = prices.back();
+    int max_benefit = -1;
+    std::bitset<ITEM_MAX> si(0);
+    std::vector<std::bitset<ITEM_MAX> > mxss;
+    do {
+      si = std::bitset<ITEM_MAX>(si.to_ulong() + 1); // どの商品に入札するか
+      if ((si & tendering) != si) continue;
+
+      int ben, ev = evals[si.to_ulong() - 1], cost = 0;
+
+      if (first_day) {
+        for (size_t i = 0; i < n; i++) if (si[i]) cost += cur_price[i];
+      } else {
+        Vector<double> prc(n); for (size_t i = 0; i < n; i++) prc[i] = cur_price[i];
+        // 入札のシミュレーション
+        std::bitset<ITEM_MAX> st = si;
+        while (true) {
+          std::bitset<ITEM_MAX> comp(0);
+          printf("prices: [");
+          for (size_t i = 0; i < n; i++)
+            printf("%d%s", (int)prc[i], i == n - 1 ? "] -> " : " ");
+          for (size_t i = 0; i < m; i++) {
+            if (i == cid - 1) continue;
+            printf("%zu:", i);
+            for (size_t j = 0; j < n; j++) {
+              if (svms[i][j].discriminant(prc) > 0.0) {
+                printf("1");
+                if (st[j]) comp[j] = 1;
+                else st[j] = 1;
+              }
+              else printf("0");
+            }
+            printf(" ");
+          }
+          puts("");
+          if (comp.to_ulong() == 0) {
+            cost = 0;
+            for (size_t i = 0; i < n; i++) if (si[i]) cost += (int)prc[i];
+            break;
+          }
+          else {
+            cost = 0;
+            for (size_t i = 0; i < n; i++) {
+              if (comp[i]) prc[i] += 1.0;
+              if (si[i]) cost += (int)prc[i];
+            }
+            if (cost > ev) break;
+          }
+        }
+      }
+      ben = ev - cost;
+      
+      std::string tmp = si.to_string(); reverse(tmp.begin(), tmp.end()); tmp = tmp.substr(0, n);
+      printf("%s ## ev: %d, cost: %d, benefit: %d\n", tmp.c_str(), ev, cost, ben);
+
+      if (ben > max_benefit) { max_benefit = ben; mxss.clear(); mxss.push_back(si); }
+      else if (ben == max_benefit) { max_benefit = ben; mxss.push_back(si); }
+    } while (si.count() < n);
+    
+    // どうやっても利益が出ないとき
+    if (max_benefit < 0) {
+      tendering.reset();
+      return std::string(n, '0');
+    }
+    
+    tendering = mxss[rand() % mxss.size()];
+    std::string ret = tendering.to_string();
+    reverse(ret.begin(), ret.end());
+    return ret.substr(0, n);
+  }
+
+  /*
+  std::string decide() {
     std::bitset<ITEM_MAX> others(0);
     if (!first_day) {
       // 他のエージェントがどの商品に入札するかを予測する
@@ -134,6 +207,7 @@ class Client {
     reverse(ret.begin(), ret.end());
     return ret.substr(0, n);
   }
+  */
 
   void start_connection () {
     servhost = gethostbyname(host.c_str());
