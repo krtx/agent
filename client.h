@@ -38,7 +38,7 @@ class Client {
     start_connection();
     if (!first_day) load_data();
     load_eval(ev_file.c_str());
-    tendering.reset();
+    tendering.set();
     run();
     dump();
   }
@@ -47,7 +47,7 @@ class Client {
   std::string log_file;
   bool first_day;
 
-  // variables for socket
+  // ソケット用の変数
   int s;
   struct hostent *servhost;
   struct sockaddr_in server;
@@ -57,8 +57,8 @@ class Client {
   unsigned short port;
 
   int cid; // client id
-  size_t n, m; // num of items, num of clients
-  std::vector<std::string> cnames; // client names
+  size_t n, m; // 商品数、クライアント数
+  std::vector<std::string> cnames; // クライアント名
   std::vector<std::vector<int> > prices;
   std::vector<std::vector<std::string> > tenders;
   std::vector<std::vector<SVM> > svms;
@@ -85,87 +85,110 @@ class Client {
 
   std::string decide() {
     std::bitset<ITEM_MAX> others(0);
-    int sum = 0;
-    Vector<double> prc(n);
-    for (size_t i = 0; i < n; i++) sum += (prc[i] = prices.back()[i]);
-    for (size_t i = 0; i < m; i++) for (size_t j = 0; j < n; j++) {
-        if (others[j]) break;
-        if (svms[i][j].discriminant(prc) > 0.0) others[j] = true;
-      }
+    if (!first_day) {
+      // 他のエージェントがどの商品に入札するかを予測する
+      Vector<double> prc(n);
+      for (size_t i = 0; i < n; i++) prc[i] = prices.back()[i];
+      for (size_t i = 0; i < m; i++) for (size_t j = 0; j < n; j++) {
+          if (others[j]) break;
+          if (svms[i][j].discriminant(prc) > 0.0) others.set(j);
+        }
+    }
+
+    printf("現在の価格 ");
+    for (size_t i = 0; i < n; i++) printf("[%d] ", prices.back()[i]);
+    puts("");
 
     int mx = -1;
     std::bitset<ITEM_MAX> mxs, s(0);
+    std::vector<std::bitset<ITEM_MAX> > mxss;
     do {
       s = std::bitset<ITEM_MAX>(s.to_ulong() + 1);
+      std::string tmp = s.to_string();
       if ((s & tendering) != s) continue;
+      int sum = 0;
+      for (size_t i = 0; i < n; i++) if (s[i]) sum += prices.back()[i];
+
       int profit = evals[s.to_ulong() - 1] - (sum + (s & others).count());
-      if (profit > mx) {
-        mx = profit; mxs = s;
-      }
+      if (profit > mx) { mx = profit; mxss.clear(); mxss.push_back(s); }
+      else if (profit == mx) { mx = profit; mxss.push_back(s); }
+      tmp = s.to_string(); reverse(tmp.begin(), tmp.end()); tmp = tmp.substr(0, n);
+      printf("%s .. (ev : %d, sum : %d, profit : %d)\n", tmp.c_str(), evals[s.to_ulong() - 1], sum, profit);
     } while (s.count() < n);
 
-    if (mx < 0) return std::string(n, '0');
-    return mxs.to_string();
+    printf("mxss.size() = %zu, mxss = [", mxss.size());
+    for (size_t i = 0; i < mxss.size(); i++) {
+      std::string tmp = mxss[i].to_string(); reverse(tmp.begin(), tmp.end()); tmp = tmp.substr(0, n);
+      printf("%s%c", tmp.c_str(), i == mxss.size() - 1 ? ']' : ' ');
+    }
+    puts("");
+
+    // どうやっても利益が出ないとき
+    if (mx < 0) {
+      tendering.reset();
+      return std::string(n, '0');
+    }
+    
+    tendering = mxss[rand() % mxss.size()];
+    std::string ret = tendering.to_string();
+    reverse(ret.begin(), ret.end());
+    return ret.substr(0, n);
   }
 
   void start_connection () {
-    try {
-      servhost = gethostbyname(host.c_str());
-      if (servhost == NULL){
-        fprintf(stderr, "[%s] から IP アドレスへの変換に失敗しました。\n", host.c_str());
-        throw;
-      }
-
-      bzero(&server, sizeof(server));
-
-      server.sin_family = AF_INET;
-      bcopy(servhost->h_addr, &server.sin_addr, servhost->h_length);
-      server.sin_port = htons(port);
-
-      if ((s = socket(AF_INET, SOCK_STREAM, 0)) < 0){
-        fprintf(stderr, "ソケットの生成に失敗しました。\n");
-        throw;
-      }
-      if (connect(s, (struct sockaddr *)&server, sizeof(server)) == -1){
-        fprintf(stderr, "connect に失敗しました。\n");
-        throw;
-      }
-      
-      // "PLEASE INPUT YOUR NAME"
-      if ((read_size = read(s, buf, BUF_LEN)) > 0)
-        write(1, buf, read_size);
-
-      // input name
-      fgets(buf, BUF_LEN, stdin);
-      write(s, buf, strlen(buf));
-
-      // IDとクライアント名の対応
-      // "a1:name1 a2:name2 ..."
-      if ((read_size = read(s, buf, BUF_LEN)) > 0)
-        write(1, buf, read_size);
-      buf[read_size] = '\0';
-      std::stringstream ss(buf);
-      std::string tmp;
-      while (ss >> tmp)
-        cnames.push_back(tmp.substr(tmp.find(':') + 1));
-
-      // "Your ID: x", x はクライアントID
-      if ((read_size = read(s, buf, BUF_LEN)) > 0)
-        write(1, buf, read_size);
-      buf[read_size] = '\0';
-      sscanf(buf, "%*[^0-9]%d", &cid);
-
-      // "n,m", n は商品数 m はクライアント数
-      if ((read_size = read(s, buf, BUF_LEN)) > 0)
-        write(1, buf, read_size);
-      buf[read_size] = '\0';
-      sscanf(buf, "%zu%*[^0-9]%zu", &n, &m);
-
-    } catch (const std::exception &ex) {
-      std::cerr << "error occured" << std::endl;
+    servhost = gethostbyname(host.c_str());
+    if (servhost == NULL){
+      fprintf(stderr, "[%s] から IP アドレスへの変換に失敗しました。\n", host.c_str());
+      throw;
     }
+
+    bzero(&server, sizeof(server));
+
+    server.sin_family = AF_INET;
+    bcopy(servhost->h_addr, &server.sin_addr, servhost->h_length);
+    server.sin_port = htons(port);
+
+    if ((s = socket(AF_INET, SOCK_STREAM, 0)) < 0){
+      fprintf(stderr, "ソケットの生成に失敗しました。\n");
+      throw;
+    }
+    if (connect(s, (struct sockaddr *)&server, sizeof(server)) == -1){
+      fprintf(stderr, "connect に失敗しました。\n");
+      throw;
+    }
+      
+    // "PLEASE INPUT YOUR NAME"
+    if ((read_size = read(s, buf, BUF_LEN)) > 0)
+      write(1, buf, read_size);
+
+    // input name
+    fgets(buf, BUF_LEN, stdin);
+    write(s, buf, strlen(buf));
+
+    // IDとクライアント名の対応
+    // "a1:name1 a2:name2 ..."
+    if ((read_size = read(s, buf, BUF_LEN)) > 0)
+      write(1, buf, read_size);
+    buf[read_size] = '\0';
+    std::stringstream ss(buf);
+    std::string tmp;
+    while (ss >> tmp)
+      cnames.push_back(tmp.substr(tmp.find(':') + 1));
+
+    // "Your ID: x", x はクライアントID
+    if ((read_size = read(s, buf, BUF_LEN)) > 0)
+      write(1, buf, read_size);
+    buf[read_size] = '\0';
+    sscanf(buf, "%*[^0-9]%d", &cid);
+
+    // "n,m", n は商品数 m はクライアント数
+    if ((read_size = read(s, buf, BUF_LEN)) > 0)
+      write(1, buf, read_size);
+    buf[read_size] = '\0';
+    sscanf(buf, "%zu%*[^0-9]%zu", &n, &m);
   }
 
+  // 蓄積された入札データを読み込み、SVMを作成する
   void load_data() {
     std::ifstream ifs(log_file.c_str());
     char buf[BUF_LEN];
@@ -198,26 +221,21 @@ class Client {
       }
     }
     
+    puts("creating SVMs...");
     Kernel *k = new Gaussian(10.0);
     svms = std::vector<std::vector<SVM> >(m);
-    for (size_t i = 0; i < m; i++) {
-      //svms[i] = std::vector<SVM>(n);
+    for (size_t i = 0; i < m; i++) 
       for (size_t j = 0; j < n; j++)
         svms[i].push_back(SVM(x, y[i][j], k, 10));
-    }
   }
 
   void run() {
     prices.push_back(std::vector<int>(n, 0));
     while (1) {
-      puts("-------------------------------------");
-      std::string dec = decide() + "\n";
-      printf("## %s ##\n", dec.c_str());
-      write(s, dec.c_str(), n + 1);
-      /*
-      fgets(buf, BUF_LEN, stdin);
-      write(s, buf, strlen(buf));
-      */
+      printf("------------------- %zu ----------------------\n", prices.size());
+      std::string dec = decide();
+      printf("DECISION: %s\n", dec.c_str());
+      write(s, (dec + "\n").c_str(), n + 1);
 
       // current prices and tenders (current prices are ignored)
       // "g1:1 g2:1 g3:1 a1:100 a2:010 a3:110 a4:100"

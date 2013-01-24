@@ -6,6 +6,7 @@
 #include <exception>
 #include <string>
 #include <cstdio>
+#include <ctime>
 //#include <boost/program_options.hpp>
 #include "QuadProg++.hh"
 #include "svm.h"
@@ -217,6 +218,8 @@ int main(int argc, char *const argv[])
 
   char *host, *log_file, *ev_file;
   unsigned short port = 5000;
+
+  srand((unsigned int)time(NULL));
 
   if (argc < 3) {
     std::cout << "usage: client [logfile] [evfile] [hostname] [port]\n";
