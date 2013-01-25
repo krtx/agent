@@ -2,6 +2,8 @@
 #define SVM_H
 
 #include <iostream>
+#include <algorithm>
+#include <set>
 #include <cstdio>
 #include <exception>
 #include <cmath>
@@ -55,47 +57,99 @@ public:
       Vector<double> y,
       Kernel* kernel = new DotProd(),
       double c = -1.0):kernel(kernel), x(x), y(y) {
+
+    // 重複する列を削除する
+    std::set<unsigned int> indexes;
+    for (size_t i = 0; i < x.nrows(); i++) indexes.insert(i);
+    for (size_t i = 0; i < x.nrows(); i++) {
+      for (size_t j = i + 1; j < x.nrows(); j++) {
+        bool same = true;
+        for (size_t k = 0; k < x.ncols(); k++)
+          if (x.extractRow(i)[k] != x.extractRow(j)[k]) {
+            same = false; break;
+          }
+        if (same) { indexes.erase(i); break; }
+      }
+    }
+    for (std::set<unsigned int>::iterator it = indexes.begin();
+         it != indexes.end(); it++) {
+      printf("%d ", *it);
+    }
+    x = x.extractRows(indexes);
+    y = y.extract(indexes);
+    
+    puts("given values");
+    for (size_t i = 0; i < x.nrows(); i++) {
+      for (size_t j = 0; j < x.ncols(); j++) printf("%f ", x[i][j]);
+      printf(":: %f\n", y[i]);
+    }
+    puts("");
+
     int r = x.nrows();
     int n = r;
     Matrix<double> G(n, n), CE(1.0 * n, 1), CI;
     Vector<double> g0(-1.0, n), ce0(0.0, 1), ci0;
-  
-    for (int i = 0; i < n; i++)
-      for (int j = 0; j < n; j++) {
-        G[i][j] = (*kernel)(x.extractRow(i), x.extractRow(j)) * y[i] * y[j];
-        // add an minute value to diagonal elements
-        if (i == j) G[i][j] += 1.0e-6;
+
+    // y が全て同じ値のときは別処理にしてしまう
+    for (size_t i = 0; i < y.size(); i++) printf("%f ", y[i]);
+    puts("");
+    bool same = true;
+    for (size_t i = 0; i < y.size(); i++)
+      if (y[i] != y[0]) { same = false; break; }
+    if (same) {
+      puts("same values");
+      theta = 0.0;
+      for (size_t i = 0; i < x.ncols(); i++) theta += x[0][i];
+      for (size_t i = 0; i < x.nrows(); i++) {
+        double tmp = 0.0;
+        for (size_t j = 0; j < x.ncols(); j++) tmp += x[i][j];
+        if (y[0] > 0) theta = std::min(theta, tmp);
+        else theta = std::max(theta, tmp);
       }
-    for (int i = 0; i < n; i++) CE[i][0] = y[i];
+    }
+    else {
+      for (int i = 0; i < n; i++)
+        for (int j = 0; j < n; j++) {
+          G[i][j] = (*kernel)(x.extractRow(i), x.extractRow(j)) * y[i] * y[j];
+          // add an minute value to diagonal elements
+          if (i == j) G[i][j] += 1.0e-6;
+        }
+      for (int i = 0; i < n; i++) CE[i][0] = y[i];
     
-    if (c < 1e-9) { // hard margin svm
-      CI.resize(0.0, n, n);
-      ci0.resize(0.0, n);
-      for (int i = 0; i < n; i++) CI[i][i] = 1.0;
-    }
-    else { // soft margin svm
-      CI.resize(0.0, n, 2 * n);
-      ci0.resize(0.0, 2 * n);
-      for (int i = 0; i < n; i++) {
-        CI[i][i] = 1.0;
-        CI[i][i + n] = -1.0;
+      if (c < 1e-9) { // hard margin svm
+        CI.resize(0.0, n, n);
+        ci0.resize(0.0, n);
+        for (int i = 0; i < n; i++) CI[i][i] = 1.0;
       }
-      for (int i = 0; i < n; i++) ci0[i + n] = c;
-    }
+      else { // soft margin svm
+        CI.resize(0.0, n, 2 * n);
+        ci0.resize(0.0, 2 * n);
+        for (int i = 0; i < n; i++) {
+          CI[i][i] = 1.0;
+          CI[i][i + n] = -1.0;
+        }
+        for (int i = 0; i < n; i++) ci0[i + n] = c;
+      }
 
-    alpha.resize(n);
+      alpha.resize(n);
 
-    try {
-      solve_quadprog(G, g0, CE, ce0, CI, ci0, alpha);
-    } catch (const std::exception& ex) {
-      std::cerr << "\n!!! lerning failed !!!\n" << ex.what() << std::endl;
-      throw;
-    }
+      try {
+        solve_quadprog(G, g0, CE, ce0, CI, ci0, alpha);
+      } catch (const std::exception& ex) {
+        std::cerr << "\n!!! lerning failed !!!\n" << ex.what() << std::endl;
+        throw;
+      }
 
-    for (size_t i = 0; i < x.nrows(); i++) {
-      if (alpha[i] > 1e-6) {
-        theta = sum(x.extractRow(i)) - y[i];
-        break;
+      puts("learning ended");
+
+      for (size_t i = 0; i < x.nrows(); i++) {
+        if (alpha[i] > 1e-6) {
+          theta = -y[i];
+          for (size_t j = 0; j < x.nrows(); j++)
+            theta += x.extractRow(i)[j];
+          //theta = sum(x.extractRow(i)) - y[i];
+          break;
+        }
       }
     }
   };
@@ -106,7 +160,9 @@ public:
   };
 
   double discriminant(Vector<double> v) {
-    return sum(v) - theta;
+    double ret = -theta;
+    for (size_t i = 0; i < v.size(); i++) ret += v[i];
+    return ret;
   };
 
 private:
