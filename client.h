@@ -273,6 +273,7 @@ class Client {
 
     puts("creating SVMs...");
     Kernel *k = new Gaussian(20.0);
+    //Kernel *k = new DotProd();
     svms = std::vector<std::vector<SVM> >(m);
     for (size_t i = 0; i < m; i++) 
       for (size_t j = 0; j < n; j++) {
